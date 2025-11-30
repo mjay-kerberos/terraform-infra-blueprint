@@ -1,0 +1,133 @@
+name: "Terraform AWS" 
+on: 
+  pull_request:
+    branches:
+      - main
+  push: 
+    paths:
+      - 'feat/**'
+      - 'fix/**'
+      - 'wip/**'
+
+permissions: 
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs: 
+  plan: 
+    name: IAC - PLAN
+    runs-on: ubuntu-latest
+    steps: 
+    - name: Git Clone the Repo 
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terrafrom@v3
+      with: 
+        terraform_version: "1.14.0"
+        terraform_wrapper: true
+
+    - name: Configure AWS Creds
+      uses: aws-actions/configure-aws-credentials@v4
+      with: 
+       role-to-assume: arn:aws:iam::202533501269:role/TerraformDeploy
+       aws-region: eu-west-2
+    
+    - name: Terraform fmt
+    id: fmt
+    run: terraform fmt -check -no-color
+
+    - name: Terraform Init
+      id: init
+      run: terraform init -input=false
+    
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate -no-color
+    
+    - name: Terraform Plan
+      id: plan
+      run: terraform plan -no-color -input=false -out=tfplan
+      continue-on-error: true
+
+    - name: Upload Terraform plan artifact
+      if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
+      uses: actions/upload-artifact@v4
+      with:
+        name: tfplan
+        path: tfplan
+        retention-days: 1
+
+    - name: Comment PR with plan results (Python)
+      if: github.event_name == 'pull_request'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+        TF_FMT_OUTCOME: ${{ steps.fmt.outcome }}
+        TF_INIT_OUTCOME: ${{ steps.init.outcome }}
+        TF_VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+        TF_PLAN_OUTCOME: ${{ steps.plan.outcome }}
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_WORKFLOW: ${{ github.workflow }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+      run: |
+        python .github/scripts/commentPlan.py
+
+  apply:
+    name: IAC - APPLY
+    needs: plan
+    # Only run apply for PRs, and only if plan job finished
+    if: github.event_name == 'pull_request' && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: terraform-prod
+      # optional: url: https://console.aws.amazon.com/
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.0"
+          terraform_wrapper: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::202533501269:role/TerraformDeploy
+          aws-region: eu-west-2
+
+      - name: Download Terraform plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: .
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform apply
+        id: apply
+        run: terraform apply -auto-approve -input=false tfplan
+        continue-on-error: true
+
+      - name: Comment PR with apply results using Python
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          APPLY_OUTCOME: ${{ steps.apply.outcome }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          python .github/scripts/commentApply.py
