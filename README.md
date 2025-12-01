@@ -1,8 +1,27 @@
+<div id="top">
+
+<!-- HEADER STYLE: CLASSIC -->
+<div align="center">
+
 # terraform-infra-blueprint
 
-> A small but realistic project that shows how to deploy AWS infrastructure with Terraform **the right way** – using GitHub Actions, OIDC, and approval gates instead of running `terraform apply` from your laptop.
+<em>A small but realistic project that shows how to deploy AWS infrastructure with Terraform **the right way** – using GitHub Actions, OIDC, and approval gates instead of running `terraform apply` from your laptop.</em>
 
----
+<!-- BADGES -->
+<img src="https://github.com/mjay-kerberos/terraform-infra-blueprint/actions/workflows/tf-deploy.yaml/badge.svg" alt="Terraform AWS Workflow Status">
+<img src="https://img.shields.io/github/last-commit/mjay-kerberos/snort-ansible?style=flat&logo=git&logoColor=white&color=0080ff" alt="last-commit">
+<br>
+
+<em>Built with the tools and technologies:</em>
+<br>
+<img src="https://img.shields.io/badge/Terraform-844FBA.svg?style=flat&logo=Terraform&logoColor=white" alt="Terraform">
+<img src="https://img.shields.io/badge/Python-3776AB.svg?style=flat&logo=Python&logoColor=white" alt="Python">
+
+
+
+</div>
+<br>
+
 
 ## Project Goal
 
